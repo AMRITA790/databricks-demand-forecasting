@@ -1,0 +1,90 @@
+#BRONZE
+df = spark.read \
+    .option("header", True) \
+    .option("inferSchema", True) \
+    .csv(
+        "/Volumes/CODEBASICS_PROJECT_1/source_data/raw/e_commerce_orders_sales/*.csv"
+    )
+display(df.limit(5))
+from pyspark.sql.functions import col
+
+
+df_clean = df.select([
+    col(c).alias(
+        c.strip()
+         .lower()
+         .replace(" ", "_")
+         .replace("-", "_")
+    )
+    for c in df.columns
+])
+display(df_clean.limit(5))
+
+df_clean.write \
+    .format("delta") \
+    .mode("overwrite") \
+    .saveAsTable("codebasics_project_1.bronze.e_commerce_orders_sales")
+
+    #SILVER
+    %sql
+USE CATALOG codebasics_project_1;
+USE SCHEMA silver;
+
+CREATE OR REPLACE TABLE silver_ecommerce_orders
+USING DELTA
+AS
+SELECT
+    order_date,
+    YEAR(order_date) AS year,
+    MONTH(order_date) AS month,
+    DATE_FORMAT(order_date, 'MMMM') AS month_name,
+    DATE_FORMAT(order_date, 'yyyy-MM') AS year_month,
+    product_name,
+    category,
+    region,
+    quantity,
+    sales,
+    profit,
+    ROUND((profit / sales) * 100, 2) AS profit_margin_pct,
+    CASE
+        WHEN profit > 0 THEN 'Profitable'
+        ELSE 'Non-profitable'
+    END AS profit_status,
+    'Assumed' AS currency
+FROM codebasics_project_1.bronze.e_commerce_orders_sales
+
+#GOLD
+
+%sql
+USE CATALOG codebasics_project_1;
+USE SCHEMA gold;
+
+%sql
+CREATE OR REPLACE TABLE gold_category_profit_margin
+AS
+SELECT
+    category,
+    ROUND(SUM(sales) / 1000000, 2) AS sales_mln,
+    ROUND(SUM(profit) / 1000000, 2) AS profit_mln,
+    ROUND((SUM(profit) / SUM(sales)) * 100, 2) AS profit_margin_pct
+FROM silver.silver_ecommerce_orders
+GROUP BY category
+ORDER BY sales_mln DESC;
+
+%sql
+use gold;
+select * from gold_category_profit_margin;
+
+%sql
+use gold;
+CREATE OR REPLACE TABLE gold_monthly_sales_trends
+SELECT
+    month_name,
+    ROUND(SUM(CASE WHEN year = 2022 THEN sales END) / 1000000, 2) AS sales_2022_mn,
+    ROUND(SUM(CASE WHEN year = 2023 THEN sales END) / 1000000, 2) AS sales_2023_mn,
+    ROUND(SUM(CASE WHEN year = 2024 THEN sales END) / 1000000, 2) AS sales_2024_mn
+FROM silver.silver_ecommerce_orders
+GROUP BY month, month_name
+ORDER BY month;
+
+WHERE sales > 0;
