@@ -1,0 +1,40 @@
+#CREATING CATALOG AND SCHEMAS
+
+%sql
+CREATE CATALOG IF NOT EXISTS CODEBASICS_PROJECT_1;
+
+%sql
+USE CATALOG CODEBASICS_PROJECT_1;
+
+%sql
+CREATE SCHEMA IF NOT EXISTS CODEBASICS_PROJECT_1.BRONZE;
+CREATE SCHEMA IF NOT EXISTS CODEBASICS_PROJECT_1.SILVER;
+CREATE SCHEMA IF NOT EXISTS CODEBASICS_PROJECT_1.GOLD;
+
+#FETCHING DATA
+
+%pip install kaggle
+import os
+
+# Replace with the details from your kaggle.json
+os.environ['KAGGLE_USERNAME'] = "amrita790" 
+os.environ['KAGGLE_KEY'] = "y5dc2d3b0882361c6b7ccd6adc17ccd0d"
+
+%sh
+
+# Create folder directly under raw volume
+mkdir -p /Volumes/CODEBASICS_PROJECT_1/source_data/raw/e_commerce_orders_sales
+
+# Move into that folder
+cd /Volumes/CODEBASICS_PROJECT_1/source_data/raw/e_commerce_orders_sales
+
+# Download the dataset from Kaggle
+kaggle datasets download -d zahranusratt/e-commerce-orders-and-sales-performance-dataset
+
+%sh
+cd /Volumes/CODEBASICS_PROJECT_1/source_data/raw/e_commerce_orders_sales
+unzip -l e-commerce-orders-and-sales-performance-dataset.zip
+
+%sh
+cd /Volumes/CODEBASICS_PROJECT_1/source_data/raw/e_commerce_orders_sales
+unzip e-commerce-orders-and-sales-performance-dataset.zip
